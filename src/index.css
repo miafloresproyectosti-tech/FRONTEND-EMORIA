@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* En Tailwind v4, las configuraciones globales de base se hacen con @theme o @layer base */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    font-family: 'Inter', sans-serif;
+    background-color: #0a0505; /* Fondo oscuro base para Emoria */
+  }
+
+  :root {
+    --app-cursor-auto: auto;
+    --app-cursor-pointer: pointer;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Force interactive elements to use the app cursor variables so
+     custom cursors persist on buttons/links and Tailwind's utilities. */
+  .cursor-pointer { cursor: var(--app-cursor-pointer) !important; }
+  .cursor-default { cursor: var(--app-cursor-auto) !important; }
+  button, a, input, label, select, textarea { cursor: var(--app-cursor-pointer) !important; }
+}
