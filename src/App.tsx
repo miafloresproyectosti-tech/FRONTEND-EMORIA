@@ -267,6 +267,8 @@ export default function App() {
     return (
       <LoginPage
         onLoggedIn={(s, isNewUser) => {
+          const hasAvatarProfile = Boolean(s.avatar);
+
           setSession({
             role: s.role,
             identifier: s.identifier,
@@ -275,11 +277,10 @@ export default function App() {
             avatar: s.avatar,
           });
           setSelectedAvatarProfile(s.avatar ?? null);
-          if (s.avatar) {
+          if (hasAvatarProfile && s.avatar) {
             setSelectedUniverse(s.avatar.universe);
-            setUniverseChosen(true);
           }
-          setUniverseChosen(false);
+          setUniverseChosen(hasAvatarProfile);
           if (isNewUser) {
             setFlow({
               intro: true,

@@ -3,6 +3,7 @@ import { clearApiToken } from "../services/apiClient";
 
 const STORAGE_KEY = "emoria_session_v1";
 const USERS_KEY = "emoria_users_v1";
+const USER_PROFILES_KEY = "emoria_user_profiles_v1";
 
 
 export type LoginPayload = {
@@ -29,6 +30,23 @@ export function getSession(): UserSession | null {
 export function saveSession(session: UserSession): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+}
+
+function getUserProfiles(): Record<string, Pick<UserSession, "gender" | "avatar">> {
+  const raw = window.localStorage.getItem(USER_PROFILES_KEY);
+  const parsed = safeParse<Record<string, Pick<UserSession, "gender" | "avatar">>>(raw);
+  return parsed ?? {};
+}
+
+function setUserProfiles(profiles: Record<string, Pick<UserSession, "gender" | "avatar">>) {
+  window.localStorage.setItem(USER_PROFILES_KEY, JSON.stringify(profiles));
+}
+
+export function getStoredUserProfile(identifier: string): Pick<UserSession, "gender" | "avatar"> | null {
+  if (typeof window === "undefined") return null;
+  const id = identifier.trim();
+  if (!id) return null;
+  return getUserProfiles()[id] ?? null;
 }
 
 function getUsers(): Record<string, import("./types").UserRecord> {
@@ -147,6 +165,13 @@ export function updateUserProfile(
     };
     setUsers(users);
   }
+
+  const profiles = getUserProfiles();
+  profiles[id] = {
+    ...profiles[id],
+    ...updates,
+  };
+  setUserProfiles(profiles);
 
   const currentSession = getSession();
   if (!currentSession || currentSession.identifier !== id) return currentSession;

@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { Mars, UserRound, Venus } from "lucide-react";
 
-import { saveSession } from "../../auth/authStore";
+import { getStoredUserProfile, saveSession } from "../../auth/authStore";
 import type { AvatarProfile, UserGender, UserRole, UserSession } from "../../auth/types";
 import { ApiError } from "../../services/apiClient";
 import { login as loginWithApi, register as registerWithApi } from "../../services/authService";
@@ -19,13 +19,16 @@ function buildSessionFromApiUser(
   user: ApiUser,
   fallback: { identifier: string; role: UserRole; gender?: UserGender }
 ): UserSession {
+  const identifier = user.username ?? user.email ?? fallback.identifier;
+  const storedProfile = getStoredUserProfile(identifier);
+
   return {
     role: user.role ?? fallback.role,
-    identifier: user.username ?? user.email ?? fallback.identifier,
+    identifier,
     displayName: user.name ?? user.username ?? fallback.identifier,
     createdAt: Date.now(),
-    gender: user.gender ?? fallback.gender,
-    avatar: user.avatar,
+    gender: user.gender ?? storedProfile?.gender ?? fallback.gender,
+    avatar: user.avatar ?? storedProfile?.avatar,
   };
 }
 
