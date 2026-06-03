@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, BarChart3 } from "lucide-react";
 import type { CompanionType } from "../types/companion";
 import { useEmotionalHistory } from "../context/EmotionalHistoryContext";
+import { useEmotionModel } from "../hooks/useEmotionModel";
 
 interface ReflectionPageProps {
   companion: CompanionType;
@@ -17,6 +18,7 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
   const [answers, setAnswers] = useState<(0 | 1 | 2 | 3 | null)[]>(Array(21).fill(null));
   const [currentPage, setCurrentPage] = useState(0);
   const [showResults, setShowResults] = useState(false);
+  const { predecir } = useEmotionModel();
   const pageSize = 3;
   const questions = [
     "Me ha costado descargar la tensión.",
@@ -199,15 +201,20 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
 
     const imageData = captureFrame();
     if (imageData) {
-      // Aquí puedes enviar imageData al modelo de deep learning o usar la integración del compañero.
-      console.debug("Frame capturado para reconocimiento", imageData);
+      const emocion = await predecir(imageData);
+      setRecognizedEmotion(emocion);
+      setRecognitionStatus("Emoción detectada. Revisa el resultado.");
+    } else {
+      setRecognitionStatus("No se pudo capturar la imagen. Intenta de nuevo.");
     }
 
-    setTimeout(() => {
-      setIsRecognizing(false);
-      setRecognizedEmotion("Sereno");
-      setRecognitionStatus("Emoción detectada. Revisa el resultado.");
-    }, 2400);
+    setIsRecognizing(false);
+
+    // setTimeout(() => {
+    //   setIsRecognizing(false);
+    //   setRecognizedEmotion("Sereno");
+    //   setRecognitionStatus("Emoción detectada. Revisa el resultado.");
+    // }, 2400);
   };
 
   return (
