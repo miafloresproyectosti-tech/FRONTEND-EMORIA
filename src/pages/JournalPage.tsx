@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Calendar, ChevronDown, Sparkles } from "lucide-react";
 import type { CompanionType } from "../types/companion";
+import { createDiaryEntry, getDiaryEntries } from "../services/diaryService";
+import type { DiaryEntry } from "../services/diaryService";
 
 // Assets nativos
 import AmarisImg from "../assets/avatar/Amaris.png";
@@ -16,6 +18,11 @@ type MoodType = "muy-bien" | "bien" | "neutral" | "mal" | "muy-mal" | null;
 export default function JournalPage({ companion, onBack }: JournalPageProps) {
   const [selectedMood, setSelectedMood] = useState<MoodType>(null);
   const [journalText, setJournalText] = useState("");
+  const [entries, setEntries] = useState<DiaryEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loadingEntries, setLoadingEntries] = useState(false);
+  const [savingEntry, setSavingEntry] = useState(false);
+  const [entryError, setEntryError] = useState<string | null>(null);
 
   const isKael = companion === "kael";
   const avatarUrl = isKael ? KaelImg : AmarisImg;
@@ -28,6 +35,59 @@ export default function JournalPage({ companion, onBack }: JournalPageProps) {
     { id: "mal", emoji: "🙁", label: "Mal" },
     { id: "muy-mal", emoji: "😫", label: "Muy mal" },
   ] as const;
+
+  useEffect(() => {
+    let alive = true;
+    setLoadingEntries(true);
+    setEntryError(null);
+
+    getDiaryEntries()
+      .then((data) => {
+        if (alive) setEntries(data);
+      })
+      .catch(() => {
+        if (alive) setEntryError("No se pudo cargar tu historial del diario.");
+      })
+      .finally(() => {
+        if (alive) setLoadingEntries(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const formatEntryDate = (value?: string) => {
+    if (!value) return "Sin fecha";
+
+    return new Intl.DateTimeFormat("es-PE", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(value));
+  };
+
+  const handleSaveEntry = async () => {
+    const content = journalText.trim();
+    if (!content || savingEntry) return;
+
+    setSavingEntry(true);
+    setEntryError(null);
+
+    try {
+      const createdEntry = await createDiaryEntry({ content });
+      setEntries((current) => [createdEntry, ...current]);
+      setJournalText("");
+      setSelectedMood(null);
+      setShowHistory(true);
+    } catch {
+      setEntryError("No se pudo guardar la entrada. Revisa tu sesion e intentalo otra vez.");
+    } finally {
+      setSavingEntry(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[9999] bg-[#f4f7fa] text-slate-800 font-sans flex flex-col justify-between overflow-y-auto lg:overflow-hidden min-h-screen select-none">
@@ -117,8 +177,12 @@ export default function JournalPage({ companion, onBack }: JournalPageProps) {
                 <ChevronDown size={14} className="text-slate-400 flex-shrink-0" />
               </div>
               
-              <button className="text-[11px] sm:text-xs font-bold text-[var(--theme-primary)] px-2.5 py-1.5 bg-[var(--theme-hover)] rounded-xl transition whitespace-nowrap">
-                Ver entradas anteriores
+              <button
+                type="button"
+                onClick={() => setShowHistory((current) => !current)}
+                className="text-[11px] sm:text-xs font-bold text-[var(--theme-primary)] px-2.5 py-1.5 bg-[var(--theme-hover)] rounded-xl transition whitespace-nowrap"
+              >
+                {showHistory ? "Ocultar historial" : "Ver entradas anteriores"}
               </button>
             </div>
 
@@ -187,9 +251,10 @@ export default function JournalPage({ companion, onBack }: JournalPageProps) {
                 <div className="flex justify-end">
                   <button
                     type="button"
-                    disabled={!selectedMood || !journalText.trim()}
+                    onClick={handleSaveEntry}
+                    disabled={!journalText.trim() || savingEntry}
                     className={`w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs text-white shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${
-                      !selectedMood || !journalText.trim()
+                      !journalText.trim() || savingEntry
                         ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
                         : "bg-[image:var(--theme-button)] shadow-[var(--theme-shadow)]"
                     }`}
@@ -200,6 +265,35 @@ export default function JournalPage({ companion, onBack }: JournalPageProps) {
               </div>
 
             </div>
+
+            {entryError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-600">
+                {entryError}
+              </div>
+            )}
+
+            {showHistory && (
+              <div className="max-h-[220px] overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50/80 p-3">
+                {loadingEntries ? (
+                  <p className="text-xs font-semibold text-slate-400">Cargando entradas...</p>
+                ) : entries.length === 0 ? (
+                  <p className="text-xs font-semibold text-slate-400">Aun no tienes entradas guardadas.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {entries.map((entry) => (
+                      <article key={entry.id} className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--theme-primary)]">
+                          {formatEntryDate(entry.created_at)}
+                        </p>
+                        <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600">
+                          {entry.content}
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
         </footer>

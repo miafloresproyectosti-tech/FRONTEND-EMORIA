@@ -1,15 +1,60 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Mars, UserRound, Venus } from "lucide-react";
 
-import { login, register, userExists } from "../../auth/authStore";
-import type { AvatarProfile, UserGender, UserRole } from "../../auth/types";
+import { saveSession } from "../../auth/authStore";
+import type { AvatarProfile, UserGender, UserRole, UserSession } from "../../auth/types";
+import { ApiError } from "../../services/apiClient";
+import { login as loginWithApi, register as registerWithApi } from "../../services/authService";
+import type { ApiUser } from "../../services/authService";
 
 interface LoginPageProps {
   onLoggedIn: (
     session: { role: UserRole; identifier: string; displayName: string; gender?: UserGender; avatar?: AvatarProfile },
     isNewUser: boolean
   ) => void;
+}
+
+function buildSessionFromApiUser(
+  user: ApiUser,
+  fallback: { identifier: string; role: UserRole; gender?: UserGender }
+): UserSession {
+  return {
+    role: user.role ?? fallback.role,
+    identifier: user.username ?? user.email ?? fallback.identifier,
+    displayName: user.name ?? user.username ?? fallback.identifier,
+    createdAt: Date.now(),
+    gender: user.gender ?? fallback.gender,
+    avatar: user.avatar,
+  };
+}
+
+function getSubmitErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) {
+      return "Usuario o contrasena incorrectos. Revisa tus datos e intentalo otra vez.";
+    }
+
+    if (error.status === 409) {
+      return "El usuario ya existe. Selecciona iniciar sesion para acceder.";
+    }
+
+    if (error.status === 422) {
+      const firstValidationError = error.payload?.errors
+        ? Object.values(error.payload.errors).flat()[0]
+        : null;
+
+      return firstValidationError ?? "Revisa los datos ingresados e intentalo nuevamente.";
+    }
+
+    return error.payload?.message ?? "Ocurrio un error al conectar con el backend.";
+  }
+
+  if (error instanceof Error && error.message === "AUTH_RESPONSE_INVALID") {
+    return "El backend respondio sin token o sin usuario. Revisa la respuesta de login/register.";
+  }
+
+  return "Ocurrio un error inesperado. Intentalo nuevamente.";
 }
 
 export default function LoginPage({ onLoggedIn }: LoginPageProps) {
@@ -19,17 +64,11 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
   const [loading, setLoading] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
   const [gender, setGender] = useState<UserGender | null>(null);
+  const [mode, setMode] = useState<"choose" | "login" | "register">("choose");
 
   const role: UserRole = "USUARIO";
-  const [mode, setMode] = useState<"choose" | "login" | "register">("choose");
   const trimmedIdentifier = identifier.trim();
   const isValidIdentifier = trimmedIdentifier.length >= 3;
-
-  const userStatus = useMemo<"existing" | "new" | "unknown">(() => {
-    if (!isValidIdentifier) return "unknown";
-    return userExists(trimmedIdentifier) ? "existing" : "new";
-  }, [isValidIdentifier, trimmedIdentifier]);
-
   const canSubmit =
     isValidIdentifier &&
     password.trim().length >= 4 &&
@@ -42,12 +81,12 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
     setInfo(null);
 
     if (!isValidIdentifier) {
-      setError("Ingresa tu usuario (mínimo 3 caracteres).");
+      setError("Ingresa tu usuario, minimo 3 caracteres.");
       return;
     }
 
     if (password.trim().length < 4) {
-      setError("La contraseña debe tener al menos 4 caracteres.");
+      setError("La contrasena debe tener al menos 4 caracteres.");
       return;
     }
 
@@ -57,18 +96,20 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
     }
 
     setLoading(true);
+
     try {
       if (mode === "login") {
-        if (userStatus === "new") {
-          throw new Error("USER_NOT_FOUND");
-        }
-
-        const session = login({
-          role,
+        const authSession = await loginWithApi({
+          username: trimmedIdentifier,
           identifier: trimmedIdentifier,
           password,
         });
+        const session = buildSessionFromApiUser(authSession.user, {
+          role,
+          identifier: trimmedIdentifier,
+        });
 
+        saveSession(session);
         onLoggedIn(
           {
             role: session.role,
@@ -79,52 +120,50 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
           },
           false
         );
-
         setInfo(`Hola de nuevo, ${session.displayName}. Gracias por volver a EMORIA.`);
       } else {
-        if (userStatus === "existing") {
-          throw new Error("USER_EXISTS");
-        }
-
-        const session = register({
-          role,
+        const authSession = await registerWithApi({
+          name: trimmedIdentifier,
+          username: trimmedIdentifier,
           identifier: trimmedIdentifier,
           password,
-          displayName: trimmedIdentifier,
+          password_confirmation: password,
+          role,
+          gender: gender ?? "female",
+        });
+        const session = buildSessionFromApiUser(authSession.user, {
+          role,
+          identifier: trimmedIdentifier,
           gender: gender ?? "female",
         });
 
+        saveSession(session);
         onLoggedIn(
           {
             role: session.role,
             identifier: session.identifier,
             displayName: session.displayName,
             gender: session.gender,
+            avatar: session.avatar,
           },
           true
         );
-
-        setInfo(
-          "¡Bienvenido a EMORIA! Esta plataforma es totalmente discreta y está diseñada para ayudarte a explorar tu estado emocional usando solo usuario y contraseña."
-        );
+        setInfo("Bienvenido a EMORIA. Tu cuenta fue creada correctamente.");
       }
     } catch (err) {
-      if (err instanceof Error) {
-        if (err.message === "USER_NOT_FOUND") {
-          setError("No se encontró una cuenta con ese usuario. Si eres nuevo, regístrate primero.");
-        } else if (err.message === "USER_EXISTS") {
-          setError("El usuario ya existe. Selecciona iniciar sesión para acceder.");
-        } else if (err.message === "INVALID_CREDENTIALS") {
-          setError("Contraseña incorrecta. Revisa e inténtalo otra vez.");
-        } else {
-          setError("Ocurrió un error. Revisa tus datos e inténtalo nuevamente.");
-        }
-      } else {
-        setError("Ocurrió un error inesperado.");
-      }
+      setError(getSubmitErrorMessage(err));
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setMode("choose");
+    setError(null);
+    setInfo(null);
+    setPassword("");
+    setIdentifier("");
+    setGender(null);
   };
 
   const renderChoice = () => (
@@ -140,12 +179,12 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
           <h1 className="text-5xl font-black text-white mt-2 bg-clip-text text-transparent bg-gradient-to-r from-[rgba(90,240,255,0.95)] to-[rgba(175,90,255,0.95)]">EMORIA</h1>
         </div>
         <p className="text-base leading-relaxed text-white/60">
-          Tu espacio seguro y discreto para explorar tu estado emocional. Solo necesitas usuario y contraseña.
+          Tu espacio seguro y discreto para explorar tu estado emocional. Solo necesitas usuario y contrasena.
         </p>
       </div>
 
       <div className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.2em] text-white/40 font-semibold">¿Qué deseas hacer?</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-white/40 font-semibold">Que deseas hacer?</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <button
             onClick={() => {
@@ -162,7 +201,7 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
                 <p className="mt-2 text-base font-bold text-white">Tengo cuenta</p>
                 <p className="mt-1 text-xs text-white/50">Ingresa con tus credenciales</p>
               </div>
-              <div className="text-[rgba(90,240,255,0.6)] group-hover:text-[rgba(90,240,255,0.9)] transition">→</div>
+              <span className="text-[rgba(90,240,255,0.6)] group-hover:text-[rgba(90,240,255,0.9)] transition">{"->"}</span>
             </div>
           </button>
 
@@ -177,19 +216,19 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <p className="text-xs text-white/50 group-hover:text-white/70 transition">Nuevo aquí</p>
+                <p className="text-xs text-white/50 group-hover:text-white/70 transition">Nuevo aqui</p>
                 <p className="mt-2 text-base font-bold text-white">Crear cuenta</p>
-                <p className="mt-1 text-xs text-white/50">Regístrate en segundos</p>
+                <p className="mt-1 text-xs text-white/50">Registrate en segundos</p>
               </div>
-              <div className="text-[rgba(175,90,255,0.6)] group-hover:text-[rgba(175,90,255,0.9)] transition">→</div>
+              <span className="text-[rgba(175,90,255,0.6)] group-hover:text-[rgba(175,90,255,0.9)] transition">{"->"}</span>
             </div>
           </button>
         </div>
       </div>
 
       <div className="rounded-2xl border border-white/5 bg-white/[0.02] backdrop-blur px-4 py-3 text-xs text-white/50 space-y-1">
-        <p className="font-semibold text-white/60">🔒 Privacidad asegurada</p>
-        <p>Solo utilizamos usuario y contraseña. Tus datos emocionales permanecen seguros.</p>
+        <p className="font-semibold text-white/60">Privacidad asegurada</p>
+        <p>El acceso se valida con tu backend de Laravel y Sanctum.</p>
       </div>
     </div>
   );
@@ -200,27 +239,20 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-[0.25em] text-white/40 font-semibold">{mode === "login" ? "Acceso" : "Registro"}</p>
           <h2 className="text-3xl font-black text-white">
-            {mode === "login" ? "Accede a EMORIA" : "Únete a EMORIA"}
+            {mode === "login" ? "Accede a EMORIA" : "Unete a EMORIA"}
           </h2>
           <p className="text-sm text-white/60 mt-2">
-            {mode === "login" 
-              ? "Ingresa con tu usuario y contraseña para continuar."
-              : "Crea tu cuenta en solo dos pasos: usuario y contraseña."}
+            {mode === "login"
+              ? "Ingresa con tu usuario y contrasena para continuar."
+              : "Crea tu cuenta en solo dos pasos: usuario y contrasena."}
           </p>
         </div>
         <button
-          onClick={() => {
-            setMode("choose");
-            setError(null);
-            setInfo(null);
-            setPassword("");
-            setIdentifier("");
-            setGender(null);
-          }}
+          onClick={resetForm}
           className="text-sm text-white/50 hover:text-white/80 transition font-medium flex items-center gap-1 whitespace-nowrap"
           type="button"
         >
-          ← Volver
+          {"<-"} Volver
         </button>
       </div>
 
@@ -231,7 +263,7 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
             <UserRound className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-[rgba(90,240,255,0.7)] transition" size={18} />
             <input
               value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
+              onChange={(event) => setIdentifier(event.target.value)}
               className="w-full h-[48px] rounded-xl border border-white/10 bg-white/[0.02] pl-12 pr-4 text-white outline-none transition focus:border-[rgba(90,240,255,0.5)] focus:bg-white/[0.05] focus:shadow-[0_0_12px_rgba(90,240,255,0.1)]"
               placeholder="ej: Merle"
               type="text"
@@ -240,20 +272,18 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
           </div>
           {isValidIdentifier && (
             <p className="mt-2 text-xs text-white/50">
-              {userStatus === "existing" 
-                ? "✓ Usuario encontrado" 
-                : userStatus === "new"
-                ? "✓ Usuario disponible"
-                : ""}
+              {mode === "login"
+                ? "Ingresa tu contrasena para consultar tu cuenta."
+                : "Laravel validara si el usuario esta disponible al registrar."}
             </p>
           )}
         </label>
 
         <label className="block">
-          <span className="text-sm font-semibold text-white/70">Contraseña</span>
+          <span className="text-sm font-semibold text-white/70">Contrasena</span>
           <input
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
             className="w-full h-[48px] rounded-xl border border-white/10 bg-white/[0.02] px-4 text-white outline-none transition focus:border-[rgba(90,240,255,0.5)] focus:bg-white/[0.05] focus:shadow-[0_0_12px_rgba(90,240,255,0.1)]"
             placeholder="Min. 4 caracteres"
             type="password"
@@ -293,18 +323,12 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
         )}
       </div>
 
-      {userStatus !== "unknown" && (
+      {isValidIdentifier && mode !== "choose" && (
         <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.03] p-4 text-sm text-white/70">
           {mode === "login" ? (
-            userStatus === "existing" ? (
-              <p className="text-white/80">✓ <span className="font-semibold">Cuenta encontrada</span> — Ingresa tu contraseña para continuar.</p>
-            ) : (
-              <p className="text-white/80">✗ <span className="font-semibold">No existe esta cuenta</span> — Si eres nuevo, vuelve atrás para registrarte.</p>
-            )
-          ) : userStatus === "new" ? (
-            <p className="text-white/80">✓ <span className="font-semibold">Usuario disponible</span> — Continúa para completar tu registro.</p>
+            <p className="text-white/80"><span className="font-semibold">Acceso seguro</span> - Laravel validara tus credenciales.</p>
           ) : (
-            <p className="text-white/80">✗ <span className="font-semibold">Usuario ya existe</span> — Si ya tienes cuenta, vuelve atrás e inicia sesión.</p>
+            <p className="text-white/80"><span className="font-semibold">Crear cuenta</span> - Si el usuario ya existe, el backend lo indicara.</p>
           )}
         </div>
       )}
@@ -315,10 +339,10 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
           <p>{error}</p>
         </div>
       )}
-      
+
       {info && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-          <p className="font-semibold">Éxito</p>
+          <p className="font-semibold">Exito</p>
           <p>{info}</p>
         </div>
       )}
@@ -329,11 +353,11 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
         className="w-full h-[52px] rounded-xl bg-gradient-to-r from-[rgba(90,240,255,0.25)] to-[rgba(90,240,255,0.15)] border border-[rgba(90,240,255,0.5)] text-white font-bold transition hover:from-[rgba(90,240,255,0.35)] hover:to-[rgba(90,240,255,0.25)] hover:shadow-[0_0_20px_rgba(90,240,255,0.2)] disabled:opacity-50 disabled:hover:from-[rgba(90,240,255,0.25)] disabled:hover:to-[rgba(90,240,255,0.15)] disabled:hover:shadow-none"
         type="button"
       >
-        {loading ? "Procesando..." : mode === "login" ? "Iniciar sesión" : "Crear mi cuenta"}
+        {loading ? "Procesando..." : mode === "login" ? "Iniciar sesion" : "Crear mi cuenta"}
       </button>
 
       <p className="text-white/40 text-xs text-center">
-        {mode === "login" ? "¿Eres nuevo? Vuelve atrás para registrarte" : "¿Ya tienes cuenta? Vuelve atrás e inicia sesión"}
+        {mode === "login" ? "Eres nuevo? Vuelve atras para registrarte" : "Ya tienes cuenta? Vuelve atras e inicia sesion"}
       </p>
     </div>
   );
@@ -351,4 +375,3 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
     </div>
   );
 }
-

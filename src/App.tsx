@@ -3,7 +3,8 @@ import { useState, useEffect, useLayoutEffect } from "react";
 import type { CSSProperties } from "react";
 
 import LoginPage from "./components/auth/LoginPage";
-import { getSession, logout, updateUserProfile } from "./auth/authStore";
+import { getSession, logout as clearLocalSession, updateUserProfile } from "./auth/authStore";
+import { logout as logoutWithApi } from "./services/authService";
 import { useUser } from "./context/UserContext";
 
 import { Menu } from "lucide-react";
@@ -154,7 +155,9 @@ export default function App() {
   const handleKaelPanelFinish = () => setFlow((p) => ({ ...p, kaelPanel: false }));
 
   const handleLogout = () => {
-    logout();
+    void logoutWithApi().finally(() => {
+      clearLocalSession();
+    });
     setSession(null);
     setActiveTab("dashboard");
     setActiveSubModule("none");

@@ -1,4 +1,5 @@
 import type { AvatarProfile, UserGender, UserSession, UserRole } from "./types";
+import { clearApiToken } from "../services/apiClient";
 
 const STORAGE_KEY = "emoria_session_v1";
 const USERS_KEY = "emoria_users_v1";
@@ -23,6 +24,11 @@ function safeParse<T>(value: string | null): T | null {
 export function getSession(): UserSession | null {
   if (typeof window === "undefined") return null;
   return safeParse<UserSession>(window.localStorage.getItem(STORAGE_KEY));
+}
+
+export function saveSession(session: UserSession): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 }
 
 function getUsers(): Record<string, import("./types").UserRecord> {
@@ -121,6 +127,7 @@ export function login(payload: { identifier: string; password: string; role: Use
 
 export function logout(): void {
   window.localStorage.removeItem(STORAGE_KEY);
+  clearApiToken();
 }
 
 export function updateUserProfile(
@@ -132,13 +139,14 @@ export function updateUserProfile(
   const id = identifier.trim();
   const users = getUsers();
   const existing = users[id];
-  if (!existing) return null;
 
-  users[id] = {
-    ...existing,
-    ...updates,
-  };
-  setUsers(users);
+  if (existing) {
+    users[id] = {
+      ...existing,
+      ...updates,
+    };
+    setUsers(users);
+  }
 
   const currentSession = getSession();
   if (!currentSession || currentSession.identifier !== id) return currentSession;

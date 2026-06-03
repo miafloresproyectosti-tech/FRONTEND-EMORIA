@@ -5,7 +5,7 @@ export type UserRole = "USUARIO";
 
 export interface UserSession {
   role: UserRole;
-  identifier: string; // DNI o correo (lo que elija el usuario)
+  identifier: string; // USERNAME
   displayName: string;
   createdAt: number;
   gender?: UserGender;
