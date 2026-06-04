@@ -406,7 +406,7 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
                 <button
                   type="button"
                   onClick={handleActivateCamera}
-                  className="rounded-3xl bg-[var(--theme-button)] px-4 py-3 text-sm font-semibold text-white shadow-sm hover:opacity-95 transition-all"
+                  className="rounded-3xl bg-[image:var(--theme-button)] border border-transparent px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_45px_rgba(59,130,246,0.28)] transition duration-200 hover:scale-[1.02] hover:shadow-[0_24px_60px_rgba(59,130,246,0.32)] active:scale-95"
                 >
                   Activar cámara
                 </button>
@@ -504,7 +504,7 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
                           type="button"
                           onClick={handleFinishAssessment}
                           disabled={!allAnswered}
-                          className="rounded-3xl bg-[var(--theme-button)] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-3xl bg-[image:var(--theme-button)] border border-transparent px-6 py-3.5 text-sm font-semibold text-white shadow-[0_18px_45px_rgba(14,165,233,0.24)] transition duration-200 hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
                         >
                           Ver resultados
                         </button>
