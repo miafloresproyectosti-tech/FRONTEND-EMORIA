@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Play, Pause, SkipForward, SkipBack, Volume2, Sparkles, Radio, Brain } from "lucide-react";
 import type { CompanionType } from "../types/companion";
+import { logActivity } from "../hooks/useStats";
 
 // Assets sin fondo
 import AmarisImg from "../assets/avatar/Amarisfd.png";
@@ -183,7 +184,11 @@ export default function MusicTherapyPage({ companion, onBack }: MusicTherapyProp
                 </button>
                 
                 <button
-                  onClick={() => setIsPlaying(!isPlaying)}
+                  // Modifica el botón de play/pause:
+                  onClick={() => {
+                    if (isPlaying) void logActivity("music"); // 👈 registra al pausar
+                    setIsPlaying(!isPlaying);
+                  }}
                   className="w-9 h-9 rounded-full bg-[image:var(--theme-button)] text-white flex items-center justify-center shadow-md transition active:scale-95"
                 >
                   {isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}

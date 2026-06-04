@@ -3,6 +3,7 @@ import { X, BarChart3 } from "lucide-react";
 import type { CompanionType } from "../types/companion";
 import { useEmotionalHistory } from "../context/EmotionalHistoryContext";
 import { useEmotionModel } from "../hooks/useEmotionModel";
+import { logActivity } from "../hooks/useStats";
 
 interface ReflectionPageProps {
   companion: CompanionType;
@@ -104,6 +105,21 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
     },
   ];
 
+  const logEmotion = async (emotion: string) => {
+  const token = localStorage.getItem("token");
+  if (!token) return;
+
+  await fetch(`${import.meta.env.VITE_API_URL}/api/emotions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ emotion }),
+  });
+};
+
   const highSeverityCategories = scoreCards.filter((card) =>
     card.severity.label === "Grave" || card.severity.label === "Extremadamente grave"
   );
@@ -123,6 +139,7 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
         anxietySeverity: anxietySeverity.label,
         stressSeverity: stressSeverity.label,
       });
+      void logActivity("dass21");
     }
     setShowResults(true);
   };
@@ -204,6 +221,9 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
       const emocion = await predecir(imageData);
       setRecognizedEmotion(emocion);
       setRecognitionStatus("Emoción detectada. Revisa el resultado.");
+      if (emocion) {
+        void logEmotion(emocion); // 👈 guarda en Laravel
+      }
     } else {
       setRecognitionStatus("No se pudo capturar la imagen. Intenta de nuevo.");
     }
@@ -340,6 +360,37 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
                     className="absolute inset-0 h-full w-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/10" />
+                  {isRecognizing && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm z-10">
+                      <div className="flex flex-col items-center gap-4">
+                        {/* Anillo animado */}
+                        <div className="relative w-20 h-20">
+                          <div className="absolute inset-0 rounded-full border-4 border-white/10" />
+                          <div className="absolute inset-0 rounded-full border-4 border-t-[var(--theme-primary)] animate-spin" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-2xl">🧠</span>
+                          </div>
+                        </div>
+
+                        {/* Texto animado */}
+                        <div className="text-center">
+                          <p className="text-white font-black text-lg tracking-wide">
+                            Identificando emoción
+                          </p>
+                          <p className="text-white/60 text-xs mt-1 animate-pulse">
+                            Analizando tu expresión facial...
+                          </p>
+                        </div>
+
+                        {/* Puntos de carga */}
+                        <div className="flex gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-[var(--theme-primary)] animate-bounce" style={{ animationDelay: "0ms" }} />
+                          <span className="w-2 h-2 rounded-full bg-[var(--theme-primary)] animate-bounce" style={{ animationDelay: "150ms" }} />
+                          <span className="w-2 h-2 rounded-full bg-[var(--theme-primary)] animate-bounce" style={{ animationDelay: "300ms" }} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="absolute left-4 top-4 rounded-3xl bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white backdrop-blur-md">
                     {cameraActive ? "Cámara activa" : "Cámara inactiva"}
                   </div>

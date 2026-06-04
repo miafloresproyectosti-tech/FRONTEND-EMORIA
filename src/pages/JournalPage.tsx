@@ -3,6 +3,7 @@ import { X, Calendar, ChevronDown, Sparkles } from "lucide-react";
 import type { CompanionType } from "../types/companion";
 import { createDiaryEntry, getDiaryEntries } from "../services/diaryService";
 import type { DiaryEntry } from "../services/diaryService";
+import { logActivity } from "../hooks/useStats";
 
 // Assets nativos
 import AmarisImg from "../assets/avatar/Amaris.png";
@@ -79,6 +80,7 @@ export default function JournalPage({ companion, onBack }: JournalPageProps) {
     try {
       const createdEntry = await createDiaryEntry({ content });
       setEntries((current) => [createdEntry, ...current]);
+      void logActivity("diary"); 
       setJournalText("");
       setSelectedMood(null);
       setShowHistory(true);

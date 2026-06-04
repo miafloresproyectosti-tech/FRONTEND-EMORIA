@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { X, Play, Pause, RotateCcw, ChevronRight, Heart, Clock, Wind } from "lucide-react";
 import type { CompanionType } from "../types/companion";
+import { logActivity } from "../hooks/useStats";
 
 // Importación de assets
 import AmarisImg from "../assets/avatar/Amarisfd.png";
@@ -63,11 +64,20 @@ export default function BreathingPage({ companion, onBack }: BreathingPageProps)
   };
 
   const handleReset = () => {
-    setIsActive(false);
-    setCycleState("ESPERA");
-    setCurrentStep(1);
-    setSecondsLeft(4);
-  };
+  if (isActive) {
+    void logActivity("breathing"); // 👈 registra al parar
+  }
+  setIsActive(false);
+  setCycleState("ESPERA");
+  setCurrentStep(1);
+  setSecondsLeft(4);
+};
+
+// Y en el botón de salida onBack, agrega:
+const handleBack = () => {
+  if (isActive) void logActivity("breathing");
+  onBack();
+};
 
   const maxDuration = cycleState === "EXHALA" ? 6 : 4;
   const strokeDashoffset = 282.7 - (282.7 * secondsLeft) / maxDuration;
@@ -93,7 +103,7 @@ export default function BreathingPage({ companion, onBack }: BreathingPageProps)
         {/* BOTÓN SUPERIOR DE SALIDA */}
         <header className="w-full flex justify-end">
           <button
-            onClick={onBack}
+            onClick={handleBack}
             className="p-2.5 rounded-full bg-white/80 hover:bg-white text-slate-600 shadow-md border border-[var(--theme-border)] transition-all active:scale-95"
           >
             <X size={18} />
