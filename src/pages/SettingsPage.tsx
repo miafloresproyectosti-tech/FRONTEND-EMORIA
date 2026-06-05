@@ -244,7 +244,7 @@ export default function SettingsPage({
             <p className="text-[var(--theme-primary)] uppercase text-sm font-bold mb-3">
               Como funciona EMORIA
             </p>
-            <h1 className="text-3xl sm:text-5xl font-black">Configuracion</h1>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-black">Configuracion</h1>
             <p className="text-white/60 mt-3 max-w-2xl">
               Ajusta las opciones tecnicas de EMORIA: apariencia, IA, notificaciones, ubicacion, seguridad, idioma y datos.
             </p>

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-
-const API_URL = import.meta.env.VITE_API_URL as string;
+import { apiRequest } from "../services/apiClient";
 
 export interface Stats {
   streak: number;
@@ -12,19 +11,17 @@ emotion_score: number | null;
   activities_by_type: Record<string, number>;
 }
 
-export const logActivity = async (type: string, durationSeconds = 0) => {
-  const token = localStorage.getItem("token");
-  if (!token) return;
-
-  await fetch(`${API_URL}/api/activities`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ type, duration_seconds: durationSeconds }),
-  });
+export const logActivity = async (type: string, durationSeconds = 0): Promise<boolean> => {
+  try {
+    await apiRequest("/activities", {
+      method: "POST",
+      body: { type, duration_seconds: durationSeconds },
+    });
+    return true;
+  } catch (err) {
+    console.error("logActivity failed:", err);
+    return false;
+  }
 };
 
 export const useStats = () => {
@@ -32,19 +29,16 @@ export const useStats = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) { setIsLoading(false); return; }
-
-    fetch(`${API_URL}/api/activities/stats`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => setStats(data as Stats))
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
+    (async () => {
+      try {
+        const data = await apiRequest<Stats>("/activities/stats");
+        setStats(data);
+      } catch (err) {
+        // ignore
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, []);
 
   return { stats, isLoading };

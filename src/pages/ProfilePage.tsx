@@ -87,7 +87,7 @@ export default function ProfilePage({
         <p className="text-[var(--theme-primary)] uppercase text-sm font-bold mb-3">
           Quien soy dentro de EMORIA
         </p>
-        <h1 className="text-3xl sm:text-5xl font-black">Perfil</h1>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-black">Perfil</h1>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -107,7 +107,7 @@ export default function ProfilePage({
               </div>
             )}
             <div className="min-w-0">
-              <h2 className="text-4xl sm:text-6xl font-black">{displayName}</h2>
+              <h2 className="text-3xl sm:text-5xl font-black">{displayName}</h2>
               <p className="text-white/60 mt-3 text-lg">
                 Miembro EMORIA <span className="text-white/35">desde mayo 2025</span>
               </p>

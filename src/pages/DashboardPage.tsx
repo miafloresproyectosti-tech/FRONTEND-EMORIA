@@ -316,7 +316,7 @@ export default function DashboardPage({
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 lg:gap-6">
             <div>
               <p className="text-white/50 text-sm mb-2">Emotional AI Platform</p>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black">
+              <h1 className="text-2xl sm:text-3xl lg:text-5xl font-black">
                 Bienvenida,
                 <span className="bg-[image:var(--theme-gradient)] bg-clip-text text-transparent ml-3">
                   {displayName}
@@ -353,7 +353,7 @@ export default function DashboardPage({
                   </div>
                   <span className="text-white/60 text-sm">Emotional Intelligence System</span>
                 </div>
-                <h2 className="text-3xl sm:text-4xl lg:text-6xl font-black leading-tight mb-5 lg:mb-6">
+                <h2 className="text-2xl sm:text-3xl lg:text-5xl font-black leading-tight mb-5 lg:mb-6">
                   Tu bienestar<br />impulsado por IA
                 </h2>
                 <p className="text-white/60 text-base lg:text-lg max-w-[650px]">
@@ -364,7 +364,7 @@ export default function DashboardPage({
               {/* Tarjeta de bienestar — ahora dinámica */}
               <div className="rounded-[24px] sm:rounded-[30px] border border-[var(--theme-border)] bg-white/5 backdrop-blur-xl p-5 sm:p-6">
                 <p className="text-white/50 text-sm mb-2">Estado emocional</p>
-                <h3 className="text-3xl font-black mb-6">
+                <h3 className="text-2xl sm:text-3xl font-black mb-6">
                   {wellnessScore === null ? "Sin datos aún" : wellnessScore >= 80 ? "Excelente" : wellnessScore >= 60 ? "Bien" : wellnessScore >= 40 ? "Regular" : "Necesita atención"}
                 </h3>
                 <div className="flex items-end gap-3">
@@ -396,7 +396,7 @@ export default function DashboardPage({
                   <div className="flex items-center justify-between mb-6">
                     <Icon className={card.color} size={22} />
                   </div>
-                  <h3 className="text-3xl sm:text-4xl font-black mb-2">{card.value}</h3>
+                  <h3 className="text-2xl sm:text-3xl font-black mb-2">{card.value}</h3>
                   <p className="text-white/55 text-base">{card.title}</p>
                 </div>
               );

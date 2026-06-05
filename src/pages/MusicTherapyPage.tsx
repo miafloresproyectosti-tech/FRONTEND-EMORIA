@@ -16,6 +16,7 @@ export default function MusicTherapyPage({ companion, onBack }: MusicTherapyProp
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(35);
   const [selectedTrack, setSelectedTrack] = useState(0);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const isKael = companion === "kael";
   const avatarUrl = isKael ? KaelImg : AmarisImg;
@@ -41,25 +42,35 @@ export default function MusicTherapyPage({ companion, onBack }: MusicTherapyProp
     return () => clearInterval(interval);
   }, [isPlaying]);
 
+  const handleTogglePlay = async () => {
+    if (isPlaying) {
+      const ok = await logActivity("music");
+      if (!ok) setSaveError("No se pudo registrar la actividad de música.");
+      else setSaveError(null);
+    }
+    setIsPlaying((s) => !s);
+  };
+
   return (
     <div className="fixed inset-0 z-[9999] bg-[#f4f7fa] text-slate-800 font-sans flex flex-col overflow-y-auto overflow-x-hidden min-h-dvh select-none animate-fadeIn">
       
       {/* ================= CAPA 1: AVATAR AGRANDADO DE IMPACTO CINEMÁTICO ================= */}
       <div className="absolute inset-0 z-0 flex items-end justify-center pointer-events-none overflow-hidden">
         {/* Glow de fondo ampliado para cubrir al personaje gigante */}
-        <div className="absolute w-[500px] md:w-[800px] h-[500px] md:h-[800px] bg-[var(--theme-glow)] blur-[150px] rounded-full bottom-1/4 left-1/2 -translate-x-1/2 pointer-events-none" />
+        <div className="absolute w-[360px] sm:w-[600px] md:w-[800px] h-[360px] sm:h-[600px] md:h-[800px] bg-[var(--theme-glow)] blur-[120px] rounded-full bottom-1/4 left-1/2 -translate-x-1/2 pointer-events-none" />
         
         <img 
           src={avatarUrl} 
           alt={`${companionName} Terapia`} 
-          // Agrandamos masivamente con h-[90vh] en móvil y hasta h-[115vh] en pantallas de escritorio
-          // 'object-bottom' asegura que el corte de la imagen coincida de forma limpia detrás del footer
-          className="w-auto h-[72vh] sm:h-[88vh] lg:h-[115vh] max-w-none object-contain object-bottom opacity-20 lg:opacity-100 transition-all duration-500 translate-y-[4%] lg:translate-y-[10%]"
+          className="w-auto h-[46vh] sm:h-[64vh] md:h-[72vh] lg:h-[88vh] max-w-none object-contain object-bottom opacity-20 lg:opacity-100 transition-all duration-500 translate-y-[4%] lg:translate-y-[6%]"
         />
       </div>
 
       {/* ================= CAPA 2: INTERFAZ HUD LIMPIA (Z-10) ================= */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto min-h-full flex flex-col justify-between p-4 sm:p-6 lg:p-8 gap-5 sm:gap-6">
+        <div className="relative z-10 w-full max-w-7xl mx-auto min-h-full flex flex-col justify-between p-4 sm:p-6 lg:p-8 gap-5 sm:gap-6">
+        {saveError && (
+          <div className="w-full p-2 bg-red-500 text-white rounded-md text-sm text-center">{saveError}</div>
+        )}
         
         {/* BOTÓN SUPERIOR DE SALIDA */}
         <header className="w-full flex justify-end">
@@ -78,11 +89,11 @@ export default function MusicTherapyPage({ companion, onBack }: MusicTherapyProp
           <div className="col-span-1 lg:col-span-4 space-y-4 sm:space-y-5 text-left">
             <div>
               <span className="text-xs font-bold tracking-widest text-[var(--theme-primary)] uppercase">Módulo 3</span>
-              <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-light text-slate-900 tracking-tight leading-tight lg:leading-none mt-1">
+              <h1 className="text-2xl sm:text-3xl lg:text-[42px] font-light text-slate-900 tracking-tight leading-tight lg:leading-none mt-1">
                 Terapia de
               </h1>
-              <h1 className="text-3xl sm:text-4xl lg:text-[42px] font-black text-[var(--theme-primary)] tracking-tight mt-1 leading-tight lg:leading-none">
-                Sonido <span className="inline-block text-[var(--theme-secondary)] text-xl font-normal">♫</span>
+              <h1 className="text-2xl sm:text-3xl lg:text-[42px] font-black text-[var(--theme-primary)] tracking-tight mt-1 leading-tight lg:leading-none">
+                Sonido <span className="inline-block text-[var(--theme-secondary)] text-lg sm:text-xl font-normal">♫</span>
               </h1>
             </div>
 
@@ -175,7 +186,7 @@ export default function MusicTherapyPage({ companion, onBack }: MusicTherapyProp
 
             {/* Controles y Barra (Centro) */}
             <div className="md:col-span-5 flex flex-col items-center space-y-2 w-full min-w-0">
-              <div className="flex items-center gap-5">
+              <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setSelectedTrack((t) => (t === 0 ? tracks.length - 1 : t - 1))}
                   className="text-slate-400 hover:text-slate-600 transition active:scale-90"
@@ -185,10 +196,7 @@ export default function MusicTherapyPage({ companion, onBack }: MusicTherapyProp
                 
                 <button
                   // Modifica el botón de play/pause:
-                  onClick={() => {
-                    if (isPlaying) void logActivity("music"); // 👈 registra al pausar
-                    setIsPlaying(!isPlaying);
-                  }}
+                  onClick={handleTogglePlay}
                   className="w-9 h-9 rounded-full bg-[image:var(--theme-button)] text-white flex items-center justify-center shadow-md transition active:scale-95"
                 >
                   {isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}

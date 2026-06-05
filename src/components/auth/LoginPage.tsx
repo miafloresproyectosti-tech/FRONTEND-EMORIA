@@ -125,7 +125,7 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
         );
         setInfo(`Hola de nuevo, ${session.displayName}. Gracias por volver a EMORIA.`);
       } else {
-        const authSession = await registerWithApi({
+        const payload: any = {
           name: trimmedIdentifier,
           username: trimmedIdentifier,
           identifier: trimmedIdentifier,
@@ -133,7 +133,8 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
           password_confirmation: password,
           role,
           gender: gender ?? "female",
-        });
+        };
+        const authSession = await registerWithApi(payload);
         const session = buildSessionFromApiUser(authSession.user, {
           role,
           identifier: trimmedIdentifier,
@@ -322,6 +323,7 @@ export default function LoginPage({ onLoggedIn }: LoginPageProps) {
                 );
               })}
             </div>
+            
           </div>
         )}
       </div>

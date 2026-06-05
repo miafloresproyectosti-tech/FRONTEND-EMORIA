@@ -4,6 +4,7 @@ import type { CompanionType } from "../types/companion";
 import { useEmotionalHistory } from "../context/EmotionalHistoryContext";
 import { useEmotionModel } from "../hooks/useEmotionModel";
 import { logActivity } from "../hooks/useStats";
+import { apiRequest } from "../services/apiClient";
 
 interface ReflectionPageProps {
   companion: CompanionType;
@@ -16,6 +17,7 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
   const [recognitionStatus, setRecognitionStatus] = useState("Listo para iniciar reconocimiento");
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [recognizedEmotion, setRecognizedEmotion] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<(0 | 1 | 2 | 3 | null)[]>(Array(21).fill(null));
   const [currentPage, setCurrentPage] = useState(0);
   const [showResults, setShowResults] = useState(false);
@@ -105,20 +107,18 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
     },
   ];
 
-  const logEmotion = async (emotion: string) => {
-  const token = localStorage.getItem("token");
-  if (!token) return;
-
-  await fetch(`${import.meta.env.VITE_API_URL}/api/emotions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ emotion }),
-  });
-};
+  const logEmotion = async (emotion: string): Promise<boolean> => {
+    try {
+      await apiRequest("/emotions", {
+        method: "POST",
+        body: { emotion },
+      });
+      return true;
+    } catch (err) {
+      console.error("logEmotion failed:", err);
+      return false;
+    }
+  };
 
   const highSeverityCategories = scoreCards.filter((card) =>
     card.severity.label === "Grave" || card.severity.label === "Extremadamente grave"
@@ -139,7 +139,10 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
         anxietySeverity: anxietySeverity.label,
         stressSeverity: stressSeverity.label,
       });
-      void logActivity("dass21");
+      void (async () => {
+        const ok = await logActivity("dass21");
+        if (!ok) setSaveError("No se pudo guardar el resultado DASS-21.");
+      })();
     }
     setShowResults(true);
   };
@@ -222,7 +225,12 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
       setRecognizedEmotion(emocion);
       setRecognitionStatus("Emoción detectada. Revisa el resultado.");
       if (emocion) {
-        void logEmotion(emocion); // 👈 guarda en Laravel
+        const ok = await logEmotion(emocion); // 👈 guarda en Laravel
+        if (!ok) {
+          setSaveError("No se pudo guardar la emoción en el servidor.");
+        } else {
+          setSaveError(null);
+        }
       }
     } else {
       setRecognitionStatus("No se pudo capturar la imagen. Intenta de nuevo.");
@@ -244,6 +252,9 @@ export default function ReflectionPage({ companion, onBack, onNavigateToNearby }
       </div>
 
       <div className="relative z-10 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+        {saveError && (
+          <div className="w-full p-2 bg-red-500 text-white rounded-md text-sm text-center">{saveError}</div>
+        )}
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <button
             onClick={onBack}

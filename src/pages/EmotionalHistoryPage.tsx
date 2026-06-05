@@ -87,7 +87,7 @@ export default function EmotionalHistoryPage() {
         <p className="text-[var(--theme-primary)] uppercase tracking-[0.28em] text-xs sm:text-sm font-bold mb-3">
           Analisis profundo
         </p>
-        <h1 className="text-3xl sm:text-5xl font-black">Historial Emocional</h1>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-black">Historial Emocional</h1>
         <p className="text-white/60 mt-4 max-w-3xl text-base sm:text-lg">
           Evolucion, patrones y recomendaciones generadas a partir de tus registros emocionales.
         </p>

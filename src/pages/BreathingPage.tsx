@@ -20,6 +20,7 @@ export default function BreathingPage({ companion, onBack }: BreathingPageProps)
   const [cycleState, setCycleState] = useState<BreathingState>("ESPERA");
   const [secondsLeft, setSecondsLeft] = useState(4);
   const [currentStep, setCurrentStep] = useState(1);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const isKael = companion === "kael";
   const avatarUrl = isKael ? KaelImg : AmarisImg;
@@ -63,19 +64,25 @@ export default function BreathingPage({ companion, onBack }: BreathingPageProps)
     setIsActive(!isActive);
   };
 
-  const handleReset = () => {
-  if (isActive) {
-    void logActivity("breathing"); // 👈 registra al parar
-  }
-  setIsActive(false);
-  setCycleState("ESPERA");
-  setCurrentStep(1);
-  setSecondsLeft(4);
-};
+  const handleReset = async () => {
+    if (isActive) {
+      const ok = await logActivity("breathing"); // 👈 registra al parar
+      if (!ok) setSaveError("No se pudo registrar la actividad de respiración.");
+      else setSaveError(null);
+    }
+    setIsActive(false);
+    setCycleState("ESPERA");
+    setCurrentStep(1);
+    setSecondsLeft(4);
+  };
 
 // Y en el botón de salida onBack, agrega:
-const handleBack = () => {
-  if (isActive) void logActivity("breathing");
+const handleBack = async () => {
+  if (isActive) {
+    const ok = await logActivity("breathing");
+    if (!ok) setSaveError("No se pudo registrar la actividad de respiración.");
+    else setSaveError(null);
+  }
   onBack();
 };
 
@@ -99,6 +106,9 @@ const handleBack = () => {
 
       {/* ================= INTERFAZ HUD FLOTANTE SUPERPUESTA ================= */}
       <div className="relative z-10 w-full max-w-[1400px] mx-auto min-h-full flex flex-col justify-between gap-5">
+        {saveError && (
+          <div className="w-full p-2 bg-red-500 text-white rounded-md text-sm text-center">{saveError}</div>
+        )}
         
         {/* BOTÓN SUPERIOR DE SALIDA */}
         <header className="w-full flex justify-end">
@@ -117,7 +127,7 @@ const handleBack = () => {
           <div className="space-y-4 sm:space-y-6 lg:max-w-md z-10">
             <div className="drop-shadow-[0_2px_8px_rgba(255,255,255,0.85)]">
               <span className="text-xs font-bold tracking-widest text-[var(--theme-primary)] uppercase">Módulo 1</span>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 tracking-tight mt-1 leading-tight">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tight mt-1 leading-tight">
                 Respira mejor,<br />vive mejor
               </h1>
               <p className="text-slate-700 text-sm mt-2 font-semibold max-w-sm">
@@ -177,7 +187,7 @@ const handleBack = () => {
             <div className="bg-[#1e2530] rounded-2xl p-4 sm:p-5 text-white flex flex-col items-center relative shadow-inner">
               <span className="text-[9px] uppercase font-bold tracking-widest text-slate-400 mb-3">Visualización de la respiración</span>
               
-              <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center">
+              <div className="relative w-24 h-24 sm:w-28 sm:h-28 flex items-center justify-center">
                 <svg className="w-full h-full rotate-[-90deg]" viewBox="0 0 100 100">
                   <circle cx="50" cy="50" r="45" stroke="rgba(255,255,255,0.05)" strokeWidth="3.5" fill="transparent" />
                   <motion.circle 

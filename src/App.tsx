@@ -3,7 +3,7 @@ import { useState, useEffect, useLayoutEffect } from "react";
 import type { CSSProperties } from "react";
 
 import LoginPage from "./components/auth/LoginPage";
-import { getSession, logout as clearLocalSession, updateUserProfile } from "./auth/authStore";
+import { getSession, logout as clearLocalSession, updateUserProfile, getStoredUserProfile } from "./auth/authStore";
 import { logout as logoutWithApi } from "./services/authService";
 import { useUser } from "./context/UserContext";
 
@@ -14,6 +14,7 @@ import type { CompanionType } from "./types/companion";
 import type { AvatarProfile, UserGender } from "./types/avatar";
 import type { AvatarOption } from "./themes/avatarCatalog";
 import { getAvatarById, getFirstAvatarForUniverse } from "./themes/avatarCatalog";
+import { apiRequest } from "./services/apiClient";
 import {
   type ThemeKey,
   themes,
@@ -52,13 +53,16 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeSubModule, setActiveSubModule] = useState<"none" | "journal" | "music">("none");
-  const [selectedUniverse, setSelectedUniverse] = useState<ThemeKey>(initialSession?.avatar?.universe ?? "naruto");
+  const storedProfile = initialSession ? getStoredUserProfile(initialSession.identifier) : null;
+  const [selectedUniverse, setSelectedUniverse] = useState<ThemeKey>(
+    initialSession?.avatar?.universe ?? storedProfile?.avatar?.universe ?? "naruto"
+  );
   const [selectedCompanion, setSelectedCompanion] = useState<CompanionType | null>(null);
   const [appearanceMode, setAppearanceMode] = useState<"dark" | "light">("dark");
   const [particlesEnabled, setParticlesEnabled] = useState(true);
   const [universeChosen, setUniverseChosen] = useState(Boolean(initialSession?.avatar));
   const [selectedAvatarProfile, setSelectedAvatarProfile] = useState<AvatarProfile | null>(
-    () => initialSession?.avatar ?? null
+    () => initialSession?.avatar ?? storedProfile?.avatar ?? null
   );
 
   const [session, setSession] = useState<
@@ -122,10 +126,23 @@ export default function App() {
     });
 
     setSession((current) => current ? { ...current, ...(updatedSession ?? {}), avatar: profile, gender: profile.gender } : current);
+    // Persist minimal profile (gender + universe) to backend
+    (async () => {
+      try {
+        await apiRequest("/profile", {
+          method: "POST",
+          body: { gender: profile.gender, universe: profile.universe },
+        });
+      } catch (err) {
+        // non-fatal; keep local state and log
+        // eslint-disable-next-line no-console
+        console.error("Failed to sync profile to backend:", err);
+      }
+    })();
   };
 
   const handleUniverseSelect = (universe: ThemeKey, avatar: AvatarOption | null) => {
-    const gender = session?.gender ?? avatar?.gender ?? "female";
+    const gender = session?.gender ?? avatar?.gender ?? storedProfile?.gender ?? "female";
     const finalAvatar = avatar ?? getFirstAvatarForUniverse(universe, gender);
     const nextAvatarProfile = finalAvatar
       ? {
@@ -340,7 +357,7 @@ export default function App() {
         {flow.scanner && <EmoriaScanner onFinish={handleScannerFinish} />}
         {flow.questions && <EmotionalQuestions onFinish={handleQuestionsFinish} />}
         {flow.result && <EmotionResult onFinish={handleResultFinish} />}
-        {flow.universe && <UniverseSelector gender={session.gender ?? "female"} onSelect={handleUniverseSelect} />}
+        {flow.universe && <UniverseSelector gender={session.gender ?? storedProfile?.gender ?? "female"} onSelect={handleUniverseSelect} />}
         {flow.companion && <CompanionSelector onSelect={handleCompanionSelect} />}
         {flow.amarisPanel && <AmarisPanel onFinish={handleAmarisPanelFinish} />}
         {flow.kaelPanel && <KaelPanel onFinish={handleKaelPanelFinish} />}
@@ -395,7 +412,10 @@ export default function App() {
                   onUniverseChange={(theme) => {
                     setSelectedUniverse(theme);
                     setUniverseChosen(true);
-                    const nextAvatar = getFirstAvatarForUniverse(theme, session.gender ?? selectedAvatarProfile?.gender ?? "female");
+                    const nextAvatar = getFirstAvatarForUniverse(
+                      theme,
+                      session.gender ?? selectedAvatarProfile?.gender ?? storedProfile?.gender ?? "female"
+                    );
                     if (nextAvatar) {
                       persistAvatarProfile({
                         gender: nextAvatar.gender,
@@ -411,7 +431,7 @@ export default function App() {
                   particlesEnabled={particlesEnabled}
                   onParticlesEnabledChange={setParticlesEnabled}
                   displayName={session.displayName}
-                  gender={session.gender ?? selectedAvatarProfile?.gender ?? "female"}
+                  gender={session.gender ?? selectedAvatarProfile?.gender ?? storedProfile?.gender ?? "female"}
                   selectedAvatar={selectedAvatar}
                   onAvatarChange={(avatar) => {
                     const nextProfile: AvatarProfile = {
@@ -433,7 +453,7 @@ export default function App() {
                   selectedCompanion={companionParam}
                   onCompanionChange={setSelectedCompanion}
                   displayName={session.displayName}
-                  gender={session.gender ?? selectedAvatarProfile?.gender ?? "female"}
+                  gender={session.gender ?? selectedAvatarProfile?.gender ?? storedProfile?.gender ?? "female"}
                   selectedAvatar={selectedAvatar}
                 />
               )}

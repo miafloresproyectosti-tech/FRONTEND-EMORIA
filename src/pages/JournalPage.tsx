@@ -80,7 +80,8 @@ export default function JournalPage({ companion, onBack }: JournalPageProps) {
     try {
       const createdEntry = await createDiaryEntry({ content });
       setEntries((current) => [createdEntry, ...current]);
-      void logActivity("diary"); 
+        const ok = await logActivity("diary");
+        if (!ok) setEntryError("No se pudo registrar la actividad del diario.");
       setJournalText("");
       setSelectedMood(null);
       setShowHistory(true);
@@ -127,11 +128,11 @@ export default function JournalPage({ companion, onBack }: JournalPageProps) {
           {/* Bloque Izquierdo: Textos e IA */}
           <div className="col-span-1 lg:col-span-4 space-y-4 sm:space-y-5 text-left">
             <div>
-              <h1 className="text-3xl sm:text-4xl lg:text-[45px] font-light text-slate-900 tracking-tight leading-none">
+              <h1 className="text-2xl sm:text-3xl lg:text-[45px] font-light text-slate-900 tracking-tight leading-none">
                 Tu diario,
               </h1>
-              <h1 className="text-3xl sm:text-4xl lg:text-[45px] font-black text-[var(--theme-primary)] tracking-tight mt-1 leading-none">
-                tu espacio <span className="inline-block text-[var(--theme-secondary)] text-xl sm:text-2xl font-normal">✦</span>
+              <h1 className="text-2xl sm:text-3xl lg:text-[45px] font-black text-[var(--theme-primary)] tracking-tight mt-1 leading-none">
+                tu espacio <span className="inline-block text-[var(--theme-secondary)] text-lg sm:text-xl font-normal">✦</span>
               </h1>
               <p className="text-slate-400 text-xs mt-2.5 font-medium max-w-[260px] leading-relaxed">
                 Escribe libremente, reflexiona y conócete mejor cada día.

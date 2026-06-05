@@ -137,7 +137,7 @@ if (activePage === "breathing") {
           Emotional Wellness System
         </p>
 
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black mb-4 sm:mb-5">
+        <h1 className="text-2xl sm:text-3xl lg:text-5xl font-black mb-4 sm:mb-5">
           Ejercicios{" "}
           <span className="bg-[image:var(--theme-gradient)] bg-clip-text text-transparent">
             EMORIA
