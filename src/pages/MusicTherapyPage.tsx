@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Play, Pause, SkipForward, SkipBack, Volume2, Sparkles, Radio, Brain } from "lucide-react";
 import type { CompanionType } from "../types/companion";
 import { logActivity } from "../hooks/useStats";
@@ -14,41 +14,123 @@ interface MusicTherapyProps {
 
 export default function MusicTherapyPage({ companion, onBack }: MusicTherapyProps) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(35);
+  const [progress, setProgress] = useState(0);
   const [selectedTrack, setSelectedTrack] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [durationSec, setDurationSec] = useState<number>(0);
+  const [currentSec, setCurrentSec] = useState<number>(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const isKael = companion === "kael";
   const avatarUrl = isKael ? KaelImg : AmarisImg;
   const companionName = isKael ? "Kael" : "Amaris";
 
   const tracks = isKael ? [
-    { id: 1, title: "Ondas Gamma 40Hz", type: "Enfoque Cognitivo", duration: "12:40", desc: "Optimización de la corteza prefrontal para alta concentración." },
-    { id: 2, title: "Frecuencia Solfeggio 528Hz", type: "Reparación Celular", duration: "15:00", desc: "Reducción de cortisol inducido por fatiga laboral." },
-    { id: 3, title: "Ruido Blanco Neuronal", type: "Aislamiento Acústico", duration: "20:00", desc: "Bloqueo de estímulos externos para sobrecarga sensorial." }
+    { id: 1, title: "Ondas Gamma 40Hz", type: "Enfoque Cognitivo", duration: "12:40", desc: "Optimización de la corteza prefrontal para alta concentración.", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+    { id: 2, title: "Frecuencia Solfeggio 528Hz", type: "Reparación Celular", duration: "15:00", desc: "Reducción de cortisol inducido por fatiga laboral.", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
+    { id: 3, title: "Ruido Blanco Neuronal", type: "Aislamiento Acústico", duration: "20:00", desc: "Bloqueo de estímulos externos para sobrecarga sensorial.", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" }
   ] : [
-    { id: 1, title: "Ondas Theta 4Hz", type: "Meditación Profunda", duration: "10:15", desc: "Conexión interna y relajación del sistema nervioso." },
-    { id: 2, title: "Frecuencia Solfeggio 432Hz", type: "Armonía Espiritual", duration: "18:30", desc: "Sintonización natural para aliviar la ansiedad." },
-    { id: 3, title: "Sonidos del Bosque de Amaris", type: "Naturaleza Inmersiva", duration: "14:20", desc: "Paisaje sonoro orgánico para calmar pensamientos." }
+    { id: 1, title: "Ondas Theta 4Hz", type: "Meditación Profunda", duration: "10:15", desc: "Conexión interna y relajación del sistema nervioso.", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" },
+    { id: 2, title: "Frecuencia Solfeggio 432Hz", type: "Armonía Espiritual", duration: "18:30", desc: "Sintonización natural para aliviar la ansiedad.", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" },
+    { id: 3, title: "Sonidos del Bosque de Amaris", type: "Naturaleza Inmersiva", duration: "14:20", desc: "Paisaje sonoro orgánico para calmar pensamientos.", url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3" }
   ];
 
+  // Setup audio element and events
   useEffect(() => {
-    let interval: any = null;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setProgress((p) => (p >= 100 ? 0 : p + 0.5));
-      }, 500);
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
     }
-    return () => clearInterval(interval);
-  }, [isPlaying]);
+
+    const audio = audioRef.current;
+    const onTime = () => {
+      if (!audio || !audio.duration || isNaN(audio.duration)) return;
+      setCurrentSec(audio.currentTime);
+      setDurationSec(audio.duration);
+      setProgress((audio.currentTime / audio.duration) * 100);
+    };
+
+    const onLoaded = () => {
+      setDurationSec(audio.duration || 0);
+    };
+
+    const onEnded = async () => {
+      setIsPlaying(false);
+      setProgress(100);
+      try {
+        await logActivity("music");
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("loadedmetadata", onLoaded);
+    audio.addEventListener("ended", onEnded);
+
+    return () => {
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("loadedmetadata", onLoaded);
+      audio.removeEventListener("ended", onEnded);
+    };
+  }, []);
 
   const handleTogglePlay = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
     if (isPlaying) {
-      const ok = await logActivity("music");
-      if (!ok) setSaveError("No se pudo registrar la actividad de música.");
-      else setSaveError(null);
+      // pause and log
+      audio.pause();
+      try {
+        const ok = await logActivity("music");
+        if (!ok) setSaveError("No se pudo registrar la actividad de música.");
+        else setSaveError(null);
+      } catch (e) {
+        setSaveError("No se pudo registrar la actividad de música.");
+      }
+      setIsPlaying(false);
+      return;
     }
-    setIsPlaying((s) => !s);
+
+    // start playing
+    const track = tracks[selectedTrack];
+    if (!track?.url) {
+      setSaveError("Pista no disponible para reproducir.");
+      return;
+    }
+    if (audio.src !== track.url) {
+      audio.src = track.url;
+      audio.load();
+    }
+    try {
+      await audio.play();
+      setIsPlaying(true);
+      setSaveError(null);
+    } catch (err) {
+      setSaveError("No se pudo iniciar la reproducción. Revisa permisos o interacción del usuario.");
+    }
+  };
+
+  // react to selectedTrack change: load and reset
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const track = tracks[selectedTrack];
+    setProgress(0);
+    setCurrentSec(0);
+    setDurationSec(0);
+    setIsPlaying(false);
+    if (track?.url) {
+      audio.src = track.url;
+      audio.load();
+    }
+  }, [selectedTrack]);
+
+  const formatTime = (sec: number) => {
+    if (!sec || isNaN(sec)) return "00:00";
+    const m = Math.floor(sec / 60).toString().padStart(2, "0");
+    const s = Math.floor(sec % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
   };
 
   return (
@@ -212,14 +294,14 @@ export default function MusicTherapyPage({ companion, onBack }: MusicTherapyProp
 
               {/* Barra de Tiempo */}
               <div className="w-full flex items-center gap-2 text-[10px] font-mono text-slate-400">
-                <span>02:14</span>
+                <span>{formatTime(currentSec)}</span>
                 <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden relative cursor-pointer">
                   <div 
                     className="absolute top-0 left-0 h-full bg-[var(--theme-primary)] rounded-full transition-all" 
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                <span>{tracks[selectedTrack].duration}</span>
+                <span>{durationSec ? formatTime(durationSec) : tracks[selectedTrack].duration}</span>
               </div>
             </div>
 
